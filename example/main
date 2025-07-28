@@ -1,0 +1,46 @@
+from fastapi import FastAPI, Depends
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, declarative_base, Session
+from dotenv import load_dotenv
+import os
+
+# ✅ .env 로드 (example/.env 기준)
+env_path = os.path.join(os.path.dirname(__file__), ".env")
+load_dotenv(dotenv_path=env_path)
+
+# ✅ DATABASE_URL 로드 및 확인
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("❌ DATABASE_URL이 .env에서 로드되지 않았습니다.")
+print("✅ DATABASE_URL =", DATABASE_URL)
+
+# ✅ SQLAlchemy 세팅
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+# ✅ DB 세션 의존성 주입 함수
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# ✅ FastAPI 앱 생성
+app = FastAPI()
+
+# ✅ 라우터 import 및 등록
+from Chatbot.auth.login import router as login_router
+app.include_router(login_router, prefix="/auth/google")  # ✅ 여기서 prefix 붙이기
+
+# ✅ 기본 라우트
+@app.get("/", tags=["Default"])
+def read_root(db: Session = Depends(get_db)):
+    return {"message": "Hello, FastAPI with PostgreSQL!"}
+
+print("✅ main.py 로딩 완료")
+
+print("✅ 라우터에 포함된 경로들:")
+for route in app.routes:
+    print(route.path)
